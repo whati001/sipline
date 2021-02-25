@@ -2,105 +2,105 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pcap.h>
-#include <netinet/in.h>
-#include <netinet/if_ether.h>
+#include "siplinePackages.h"
+
+#define DEBUG 1
 
 #define MAX_INTERFACE_LEN 100
 #define BPF_SIP_FILTER "(port 6050) and (udp)"
 
+/**
+ * Simple c enum for boolean return value
+ */
+typedef enum {
+    TRUE, FALSE
+} boolean;
+
+/**
+ * Check if package is ethernet, define static inline which may results into better performance
+ * @param packet to check if ethernet
+ * @return sipline_ether_header if ether packet else NULL
+ */
+static inline struct sipline_ethernet_header *getEthernetHeader(const u_char *packet) {
+    struct sipline_ethernet_header *eth_header;
+    eth_header = (struct sipline_ethernet_header *) packet;
+    return eth_header;
+}
+
+/**
+ * Check if package is ip, define static inline which may result into better performance
+ * @param packet to check if ip
+ * @return sipline_ip_header if ip packet else NULL
+ */
+static inline struct sipline_ip_header *getIpHeader(const u_char *packet) {
+    struct sipline_ethernet_header *ethernet_header = getEthernetHeader(packet);
+    if (NULL == ethernet_header) {
+        fprintf(stdout, "No Ethernet package found, skip package\n");
+        return NULL;
+    }
+    printf("ether ip type: %x\n", ntohs(ethernet_header->ether_type));
+    if (ETHER_IP != ntohs(ethernet_header->ether_type)) {
+        fprintf(stdout, "No IP4 in ethernet package, skip packet\n");
+        return NULL;
+    }
+
+    struct sipline_ip_header *ip_header;
+    ip_header = (struct sipline_ip_header *) (((u_char *) ethernet_header) + SIZE_ETHERNET);
+    u_int size_ip = IP_HL(ip_header) * 4;
+    if (IP_MIN_LENGHT > size_ip) {
+        printf("   * Invalid IP header length: %u bytes\n", size_ip);
+        return NULL;
+    }
+    return ip_header;
+}
+
+static inline struct sipline_udp_header *getUdpHeader(const u_char *packet) {
+    struct sipline_ip_header *ip_header = getIpHeader(packet);
+    if (NULL == ip_header) {
+        fprintf(stdout, "No IP packet received, this should not happen within sipline application\n");
+        return NULL;
+    }
+    if (IP_PROTO_UDP != ip_header->ip_p) {
+        return NULL;
+    }
+
+    const uint16_t size_ip = IP_HL(ip_header) * 4;
+    struct sipline_udp_header *udp_header = (struct sipline_udp_header *) (((u_char *) ip_header) + size_ip);
+    if (SIZE_UDP > udp_header->uh_len) {
+        printf("Invalid IP header length: %u bytes\n", size_ip);
+        return NULL;
+    }
+    return udp_header;
+}
+
+/**
+ * SIP callback handler
+ * @param args passed by listener to callback
+ * @param header including some stuff
+ * @param packet raw package to analyze
+ */
 void sipPacketHandler(
         u_char *args,
         const struct pcap_pkthdr *header,
         const u_char *packet
 ) {
-    /* First, lets make sure we have an IP packet */
-    struct ether_header *eth_header;
-    eth_header = (struct ether_header *) packet;
-    if (ntohs(eth_header->ether_type) != ETHERTYPE_IP) {
-        printf("Not an IP packet. Skipping...\n\n");
+    fprintf(stdout, "Total packet available: %d bytes\n", header->caplen);
+    fprintf(stdout, "Expected packet size: %d bytes\n", header->len);
+
+    const struct sipline_udp_header *udp_header = getUdpHeader(packet);
+    if (NULL == udp_header) {
+        fprintf(stdout, "Not UDP header found in received package, skip it");
         return;
     }
+    u_char *payload = ((u_char *) udp_header) + SIZE_UDP;
 
-    /* The total packet length, including all headers
-       and the data payload is stored in
-       header->len and header->caplen. Caplen is
-       the amount actually available, and len is the
-       total packet length even if it is larger
-       than what we currently have captured. If the snapshot
-       length set with pcap_open_live() is too small, you may
-       not have the whole packet. */
-    printf("Total packet available: %d bytes\n", header->caplen);
-    printf("Expected packet size: %d bytes\n", header->len);
-//
-//    /* Pointers to start point of various headers */
-//    const u_char *ip_header;
-//    const u_char *tcp_header;
-//    const u_char *payload;
-//
-//    /* Header lengths in bytes */
-//    int ethernet_header_length = 14; /* Doesn't change */
-//    int ip_header_length;
-//    int tcp_header_length;
-//    int payload_length;
-//
-//    /* Find start of IP header */
-//    ip_header = packet + ethernet_header_length;
-//    /* The second-half of the first byte in ip_header
-//       contains the IP header length (IHL). */
-//    ip_header_length = ((*ip_header) & 0x0F);
-//    /* The IHL is number of 32-bit segments. Multiply
-//       by four to get a byte count for pointer arithmetic */
-//    ip_header_length = ip_header_length * 4;
-//    printf("IP header length (IHL) in bytes: %d\n", ip_header_length);
-//
-//    /* Now that we know where the IP header is, we can
-//       inspect the IP header for a protocol number to
-//       make sure it is TCP before going any further.
-//       Protocol is always the 10th byte of the IP header */
-//    u_char protocol = *(ip_header + 9);
-//    if (protocol != IPPROTO_TCP) {
-//        printf("Not a TCP packet. Skipping...\n\n");
-//        return;
-//    }
-//
-//    /* Add the ethernet and ip header length to the start of the packet
-//       to find the beginning of the TCP header */
-//    tcp_header = packet + ethernet_header_length + ip_header_length;
-//    /* TCP header length is stored in the first half
-//       of the 12th byte in the TCP header. Because we only want
-//       the value of the top half of the byte, we have to shift it
-//       down to the bottom half otherwise it is using the most
-//       significant bits instead of the least significant bits */
-//    tcp_header_length = ((*(tcp_header + 12)) & 0xF0) >> 4;
-//    /* The TCP header length stored in those 4 bits represents
-//       how many 32-bit words there are in the header, just like
-//       the IP header length. We multiply by four again to get a
-//       byte count. */
-//    tcp_header_length = tcp_header_length * 4;
-//    printf("TCP header length in bytes: %d\n", tcp_header_length);
-//
-//    /* Add up all the header sizes to find the payload offset */
-//    int total_headers_size = ethernet_header_length + ip_header_length + tcp_header_length;
-//    printf("Size of all headers combined: %d bytes\n", total_headers_size);
-//    payload_length = header->caplen -
-//                     (ethernet_header_length + ip_header_length + tcp_header_length);
-//    printf("Payload size: %d bytes\n", payload_length);
-//    payload = packet + total_headers_size;
-//    printf("Memory address where payload begins: %p\n\n", payload);
-//
-//    /* Print payload in ASCII */
-//    /*
-//    if (payload_length > 0) {
-//        const u_char *temp_pointer = payload;
-//        int byte_count = 0;
-//        while (byte_count++ < payload_length) {
-//            printf("%c", *temp_pointer);
-//            temp_pointer++;
-//        }
-//        printf("\n");
-//    }
-//    */
-
+#ifdef DEBUG
+    fprintf(stdout, "Parsed UdpHeader from package");
+    fprintf(stdout, "UdpHeader{sport: %d, dport: %d, len: %d, sum: %d}\n", ntohs(udp_header->uh_sport),
+            ntohs(udp_header->uh_dport),
+            ntohs(udp_header->uh_len), ntohs(udp_header->uh_sum));
+    fprintf(stdout, "Some Payload: %s\n", payload);
+#endif
     return;
 }
 
@@ -172,11 +172,11 @@ int setupLivePcapParsing(char *interface) {
 
 /**
  * Setup file network traffic parsing via libpcap
- * @param parentHandle pcap_t handle set after opening file and apply filter
+ * @param parent_handler pcap_t handle set after opening file and apply filter
  * @param filename to pcap file for analysing
  * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
-int setupFilePcapParsing(pcap_t **parentHandle, const char const *filename) {
+int setupFilePcapParsing(pcap_t **parent_handler, const char const *filename) {
     fprintf(stdout, "Start setup pcap file: %s\n", filename);
 
     char err_buf[PCAP_ERRBUF_SIZE];
@@ -193,7 +193,7 @@ int setupFilePcapParsing(pcap_t **parentHandle, const char const *filename) {
         return EXIT_FAILURE;
     }
 
-    *parentHandle = handle;
+    *parent_handler = handle;
     fprintf(stdout, "Done setup pcap file: %s\n", filename);
     return EXIT_SUCCESS;
 }
@@ -202,10 +202,10 @@ int setupFilePcapParsing(pcap_t **parentHandle, const char const *filename) {
  * Start PCAP SIP listener and sniff until we kill the program
  * @param handle to start listen on
  * @param callback to call for each packages
- * @param callbackArgs to pass to callback function
+ * @param callback_args to pass to callback function
  * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
-int startSipListener(pcap_t *handle, pcap_handler callback, u_char callbackArgs) {
+int startSipListener(pcap_t *handle, pcap_handler callback, u_char *callback_args) {
     if (NULL == handle) {
         fprintf(stderr, "Please provide a proper pcap handle to start SIP listening");
         return EXIT_FAILURE;
@@ -214,9 +214,9 @@ int startSipListener(pcap_t *handle, pcap_handler callback, u_char callbackArgs)
         fprintf(stdout, "No callback function for pcap loop passed, are you sure you want to burn engergy?");
     }
 
-    int retLoop = pcap_loop(handle, 0, callback, callbackArgs);
-    fprintf(stdout, "Pcap loop ended with return code: %d\n", retLoop);
-    return 0 == retLoop ? EXIT_SUCCESS : EXIT_FAILURE;
+    int ret_loop = pcap_loop(handle, 0, callback, callback_args);
+    fprintf(stdout, "Pcap loop ended with return code: %d\n", ret_loop);
+    return 0 == ret_loop ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 int main(int argc, char *argv[]) {
