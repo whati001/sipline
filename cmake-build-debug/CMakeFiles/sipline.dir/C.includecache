@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/akarner/rehka/sipline/main.c
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+pcap.h
+-
+netinet/in.h
+-
+netinet/if_ether.h
+-
+
