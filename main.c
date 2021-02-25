@@ -3,6 +3,8 @@
 #include <string.h>
 #include <pcap.h>
 #include "siplinePackages.h"
+#include <osipparser2/osip_headers.h>
+#include <osip2/osip.h>
 
 #define DEBUG 1
 
@@ -101,6 +103,8 @@ void sipPacketHandler(
             ntohs(udp_header->uh_len), ntohs(udp_header->uh_sum));
     fprintf(stdout, "Some Payload: %s\n", payload);
 #endif
+
+
     return;
 }
 
@@ -219,6 +223,24 @@ int startSipListener(pcap_t *handle, pcap_handler callback, u_char *callback_arg
     return 0 == ret_loop ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+/**
+ * Register osip state machine with all callbacks
+ * @return
+ */
+int registerOsip() {
+    fprintf(stdout, "Start to register osip state machine started\n");
+    int i;
+    osip_t *osip;
+    i = osip_init(&osip);
+
+    if (0 != i) {
+        fprintf(stdout, "Failed to register osip state machine\n");
+        return EXIT_FAILURE;
+    }
+    fprintf(stdout, "Registered osip state machine properly\n");
+    return EXIT_SUCCESS;
+}
+
 int main(int argc, char *argv[]) {
 
     char *interface = NULL;
@@ -237,6 +259,12 @@ int main(int argc, char *argv[]) {
 
     if (EXIT_FAILURE == startSipListener(handle, sipPacketHandler, NULL)) {
         fprintf(stderr, "Something failed during package analysis");
+        return EXIT_FAILURE;
+    }
+
+    // TODO: move to proper location
+    if (EXIT_FAILURE == registerOsip()) {
+        fprintf(stderr, "Failed to register osip watch properly");
         return EXIT_FAILURE;
     }
 
