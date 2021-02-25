@@ -11,12 +11,41 @@
 #define MAX_INTERFACE_LEN 100
 #define BPF_SIP_FILTER "(port 6050) and (udp)"
 
-/**
- * Simple c enum for boolean return value
- */
-typedef enum {
-    TRUE, FALSE
-} boolean;
+
+int parseSipMessage(u_char *payload, uint32_t payload_length) {
+    osip_message_t *sip;
+    int ret_parse = EXIT_SUCCESS;
+
+    ret_parse = osip_message_init(&sip);
+    if (EXIT_SUCCESS != ret_parse) {
+        fprintf(stderr, "Failed to allocate new osip message\n");
+        return EXIT_FAILURE;
+    }
+
+    ret_parse = osip_message_parse(sip, payload, payload_length);
+    if (EXIT_SUCCESS != ret_parse) {
+        fprintf(stderr, "Failed to parse sip message\n");
+        osip_message_free(sip);
+    }
+
+    if (NULL == sip->sip_method) {
+        fprintf(stdout, "SIP Answer {status: %d}\n", osip_message_get_status_code(sip));
+    } else {
+        const char *sip_method = osip_message_get_method(sip);
+        if (strncmp("INVITE", sip_method, strlen("INVITE")) == 0 ||
+            strncmp("CANCEL", sip_method, strlen("CANCEL")) == 0) {
+            printf("SIP Request {method: %s, from: %s, to: %s}\n",
+                   osip_message_get_method(sip),
+                   osip_message_get_from(sip)->displayname,
+                   osip_message_get_to(sip)->displayname);
+            
+            // TODO: inform backend via libcurl
+        }
+    }
+    osip_message_free(sip);
+
+    return EXIT_SUCCESS;
+}
 
 /**
  * Check if package is ethernet, define static inline which may results into better performance
@@ -40,7 +69,7 @@ static inline struct sipline_ip_header *getIpHeader(const u_char *packet) {
         fprintf(stdout, "No Ethernet package found, skip package\n");
         return NULL;
     }
-    printf("ether ip type: %x\n", ntohs(ethernet_header->ether_type));
+
     if (ETHER_IP != ntohs(ethernet_header->ether_type)) {
         fprintf(stdout, "No IP4 in ethernet package, skip packet\n");
         return NULL;
@@ -50,7 +79,7 @@ static inline struct sipline_ip_header *getIpHeader(const u_char *packet) {
     ip_header = (struct sipline_ip_header *) (((u_char *) ethernet_header) + SIZE_ETHERNET);
     u_int size_ip = IP_HL(ip_header) * 4;
     if (IP_MIN_LENGHT > size_ip) {
-        printf("   * Invalid IP header length: %u bytes\n", size_ip);
+        printf("IP4 packet size is smaller than minimum, properly not a valid IP4 packet\n", size_ip);
         return NULL;
     }
     return ip_header;
@@ -86,8 +115,10 @@ void sipPacketHandler(
         const struct pcap_pkthdr *header,
         const u_char *packet
 ) {
+#ifdef DEBUG
     fprintf(stdout, "Total packet available: %d bytes\n", header->caplen);
     fprintf(stdout, "Expected packet size: %d bytes\n", header->len);
+#endif
 
     const struct sipline_udp_header *udp_header = getUdpHeader(packet);
     if (NULL == udp_header) {
@@ -95,15 +126,18 @@ void sipPacketHandler(
         return;
     }
     u_char *payload = ((u_char *) udp_header) + SIZE_UDP;
+    uint32_t payload_length = ntohs(udp_header->uh_len) - SIZE_UDP;
+    printf("Payload length: %d\n", payload_length);
 
 #ifdef DEBUG
     fprintf(stdout, "Parsed UdpHeader from package");
     fprintf(stdout, "UdpHeader{sport: %d, dport: %d, len: %d, sum: %d}\n", ntohs(udp_header->uh_sport),
             ntohs(udp_header->uh_dport),
             ntohs(udp_header->uh_len), ntohs(udp_header->uh_sum));
-    fprintf(stdout, "Some Payload: %s\n", payload);
+//    fprintf(stdout, "Some Payload: %s\n", payload);
 #endif
 
+    parseSipMessage(payload, payload_length);
 
     return;
 }
@@ -225,18 +259,16 @@ int startSipListener(pcap_t *handle, pcap_handler callback, u_char *callback_arg
 
 /**
  * Register osip state machine with all callbacks
- * @return
+ * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
-int registerOsip() {
+int registerOsip(osip_t **osip) {
     fprintf(stdout, "Start to register osip state machine started\n");
-    int i;
-    osip_t *osip;
-    i = osip_init(&osip);
-
-    if (0 != i) {
+    int ret_osip = osip_init(osip);
+    if (0 != ret_osip) {
         fprintf(stdout, "Failed to register osip state machine\n");
         return EXIT_FAILURE;
     }
+
     fprintf(stdout, "Registered osip state machine properly\n");
     return EXIT_SUCCESS;
 }
@@ -244,11 +276,18 @@ int registerOsip() {
 int main(int argc, char *argv[]) {
 
     char *interface = NULL;
+    osip_t *osip = NULL;
+
     if (EXIT_FAILURE == parseInterfaceFromParams(argc, argv, &interface)) {
         fprintf(stdout, "Usage: ./sipline <interface_name>\n");
         exit(EXIT_FAILURE);
     }
     fprintf(stdout, "Start analysing SIP traffic on interface: %s\n", interface);
+
+    if (EXIT_FAILURE == registerOsip(&osip)) {
+        fprintf(stderr, "Failed to register osip watch properly");
+        return EXIT_FAILURE;
+    }
 
     // TODO: add relative addressing
     pcap_t *handle;
@@ -259,12 +298,6 @@ int main(int argc, char *argv[]) {
 
     if (EXIT_FAILURE == startSipListener(handle, sipPacketHandler, NULL)) {
         fprintf(stderr, "Something failed during package analysis");
-        return EXIT_FAILURE;
-    }
-
-    // TODO: move to proper location
-    if (EXIT_FAILURE == registerOsip()) {
-        fprintf(stderr, "Failed to register osip watch properly");
         return EXIT_FAILURE;
     }
 
