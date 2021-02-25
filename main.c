@@ -19,10 +19,10 @@
 
 
 char *getCallInfoString(struct sipline_call_info *call_info) {
-    size_t needed = snprintf(NULL, 0, "{\"type\":%d,\"from\":\"%s\",\"to\":\"%s\"}", call_info->type,
-                             call_info->from, call_info->to) + 1;
-    char *buffer = (char *) calloc(sizeof(char), needed);
-    sprintf(buffer, "{\"type\":%d,\"from\":\"%s\",\"to\":\"%s\"}", call_info->type, call_info->from, call_info->to);
+    size_t needed = snprintf(NULL, 0, "{\"type\":%d,\"from\":%s,\"to\":%s}", call_info->type,
+                             call_info->from, call_info->to);
+    char *buffer = (char *) calloc(sizeof(char), needed + 1);
+    sprintf(buffer, "{\"type\":%d,\"from\":%s,\"to\":%s}", call_info->type, call_info->from, call_info->to);
     return buffer;
 }
 
@@ -38,10 +38,14 @@ int informServer(struct sipline_call_info *call_info) {
 
     curl = curl_easy_init();
     if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, TARGET_URL);
         char *post_body = getCallInfoString(call_info);
+
+        struct curl_slist *chunk = NULL;
+        chunk = curl_slist_append(chunk, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
+        curl_easy_setopt(curl, CURLOPT_URL, TARGET_URL);
+        curl_easy_setopt(curl, CURLOPT_POST, 1);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_body);
-        free(post_body);
 
         res = curl_easy_perform(curl);
         if (res != CURLE_OK) {
@@ -50,6 +54,8 @@ int informServer(struct sipline_call_info *call_info) {
             ret_curl = EXIT_FAILURE;
         }
         curl_easy_cleanup(curl);
+        curl_slist_free_all(chunk);
+        free(post_body);
     }
     curl_global_cleanup();
     return ret_curl;
@@ -62,29 +68,26 @@ int informServer(struct sipline_call_info *call_info) {
  * @return on Success return sipline_call_info struct else NULL
  */
 struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length) {
-    int ret_parse = EXIT_SUCCESS;
-    osip_message_t *sip;
+    int ret_code = EXIT_SUCCESS;
+    osip_message_t *sip = NULL;
     struct sipline_call_info *call_info = NULL;
 
-    ret_parse = osip_message_init(&sip);
-    if (EXIT_SUCCESS != ret_parse) {
+    if (EXIT_SUCCESS != osip_message_init(&sip)) {
         fprintf(stderr, "Failed to allocate new osip message\n");
         return NULL;
     }
 
-    ret_parse = osip_message_parse(sip, ((const char *) payload), payload_length);
-    if (EXIT_SUCCESS != ret_parse) {
+    if (EXIT_SUCCESS != osip_message_parse(sip, ((const char *) payload), payload_length)) {
         fprintf(stderr, "Failed to parse sip message\n");
         osip_message_free(sip);
         return NULL;
     }
 
-    const char *sip_method = osip_message_get_method(sip);
+    char *sip_method = osip_message_get_method(sip);
     if (NULL == sip_method) {
         fprintf(stdout, "SIP Answer {status: %d}\n", osip_message_get_status_code(sip));
         // TODO: parse SIP Answer status or what we need here
         // call_info = (struct sipline_call_info *) calloc(sizeof(struct sipline_call_info), 1);
-        return call_info;
     } else {
 #ifdef DEBUG
         printf("SIP Request {method: %s, from: %s, to: %s}\n",
@@ -106,6 +109,7 @@ struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_leng
             fprintf(stdout, "%s Request{from: %s, to: %s}\n", SIP_CANCEL_LABEL, call_info->from, call_info->to);
         }
     }
+
     osip_message_free(sip);
     return call_info;
 }
@@ -211,9 +215,9 @@ void sipPacketHandler(
         return;
     }
 
-//    if (EXIT_FAILURE == informServer(call_info)) {
-//        fprintf(stderr, "Failed to post data to remove server\n");
-//    }
+    if (EXIT_FAILURE == informServer(call_info)) {
+        fprintf(stderr, "Failed to post data to remove server\n");
+    }
 
     free(call_info->from);
     free(call_info->to);
@@ -260,21 +264,30 @@ int parseInterfaceFromParams(int argc, char *argv[], char **interface) {
  * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
 int applySipFilter(pcap_t **handle) {
+    int ret_code = EXIT_SUCCESS;
     struct bpf_program filter;
+
     fprintf(stdout, "Start to compile BPF filter for SIP packages\n");
     if (pcap_compile(*handle, &filter, BPF_SIP_FILTER, 0, PCAP_NETMASK_UNKNOWN) == -1) {
         fprintf(stderr, "Bad filter expression supplied - %s\n", pcap_geterr(*handle));
-        return EXIT_FAILURE;
+        ret_code = EXIT_FAILURE;
+        goto cleanup;
     }
 
     fprintf(stdout, "Start applying BPF filter against pcap handle\n");
     if (pcap_setfilter(*handle, &filter) == -1) {
         fprintf(stderr, "Failed to apply filter - %s\n", pcap_geterr(*handle));
-        return EXIT_FAILURE;
+        ret_code = EXIT_FAILURE;
+        goto cleanup;
     }
 
     fprintf(stdout, "Done compiling and applying BPF filter.\n");
-    return EXIT_SUCCESS;
+
+    cleanup:
+    if (EXIT_SUCCESS == ret_code) {
+        pcap_freecode(&filter);
+    }
+    return ret_code;
 }
 
 /**
@@ -296,8 +309,9 @@ int setupLivePcapParsing(char *interface) {
 int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
     fprintf(stdout, "Start setup pcap file: %s\n", filename);
 
-    char err_buf[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
+    char err_buf[PCAP_ERRBUF_SIZE];
+
     fprintf(stdout, "Try to open pcap file for reading packages\n");
     handle = pcap_open_offline(filename, err_buf);
     if (NULL == handle) {
@@ -307,6 +321,7 @@ int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
 
     if (EXIT_FAILURE == applySipFilter(&handle)) {
         fprintf(stderr, "Failed to apply sip filter");
+        pcap_close(handle);
         return EXIT_FAILURE;
     }
 
@@ -373,22 +388,20 @@ int main(int argc, char *argv[]) {
     }
 
     // TODO: add relative addressing
-    if (EXIT_FAILURE == setupFilePcapParsing(&handle, "/home/akarner/rehka/sipline/test/testPackages.pcap")) {
+    ret_code = setupFilePcapParsing(&handle, "/home/akarner/rehka/sipline/test/testPackages.pcap");
+    if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to analyze provided pcap file\n");
-        free(osip);
-        free(interface);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
-//
-//    if (EXIT_FAILURE == startSipListener(handle, sipPacketHandler, NULL)) {
-//        fprintf(stderr, "Something failed during package analysis");
-//        free(osip);
-//        free(interface);
-//        return EXIT_FAILURE;
-//    }
+
+    ret_code = startSipListener(handle, sipPacketHandler, NULL);
+    if (EXIT_FAILURE == ret_code) {
+        fprintf(stderr, "Something failed during package analysis");
+        goto cleanup;
+    }
 
     cleanup:
-    free(handle);
+    pcap_close(handle);
     osip_release(osip);
     free(interface);
 
