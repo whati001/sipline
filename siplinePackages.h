@@ -52,4 +52,11 @@ struct sipline_udp_header {
     u_short uh_sum;
 };
 
+
+struct sipline_call_info {
+    uint8_t type;
+    char *from;
+    char *to;
+};
+
 #endif //SIPLINE_SIPLINEPACKAGES_H
