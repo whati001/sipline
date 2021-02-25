@@ -1,1 +1,0 @@
-/usr/bin/cc -lpcap -g   CMakeFiles/sipline.dir/main.c.o  -o sipline 

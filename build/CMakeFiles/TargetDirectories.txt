@@ -1,3 +1,0 @@
-/home/akarner/rehka/sipline/build/CMakeFiles/rebuild_cache.dir
-/home/akarner/rehka/sipline/build/CMakeFiles/edit_cache.dir
-/home/akarner/rehka/sipline/build/CMakeFiles/sipline.dir
