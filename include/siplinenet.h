@@ -2,8 +2,9 @@
 // Created by akarner on 2/25/21.
 //
 
-#ifndef SIPLINE_SIPLINEPACKAGES_H
-#define SIPLINE_SIPLINEPACKAGES_H
+#ifndef SIPLINE_SIPLINENET_H
+#define SIPLINE_SIPLINENET_H
+
 
 /**
  * Ethernet header information
@@ -59,4 +60,4 @@ struct sipline_call_info {
     char *to;
 };
 
-#endif //SIPLINE_SIPLINEPACKAGES_H
+#endif //SIPLINE_SIPLINENET_H

@@ -4,4 +4,6 @@ project(sipline C)
 set(CMAKE_C_STANDARD 11)
 SET(CMAKE_C_FLAGS "-lpcap -lcurl -losip2 -losipparser2")
 
-add_executable(sipline main.c siplinePackages.h)
+add_executable(sipline main.c include/siplinenet.h include/sipline.h)
+
+target_include_directories(sipline PRIVATE ${CMAKE_HOME_DIRECTORY}/include)

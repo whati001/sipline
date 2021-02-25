@@ -1,22 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pcap.h>
-#include "siplinePackages.h"
-#include <osip2/osip.h>
-#include <curl/curl.h>
 
-#define DEBUG 1
-
-#define MAX_INTERFACE_LEN 100
-#define BPF_SIP_FILTER "(port 6050) and (udp)"
-#define TARGET_URL "http://localhost:2711/ringBell"
-#define SIP_INVITE_CODE 0
-#define SIP_INVITE_LABEL "INVITE"
-#define SIP_CANCEL_CODE 1
-#define SIP_CANCEL_LABEL "CANCEL"
-#define SIP_ANSWER_CODE 2
-
+#include "sipline.h"
 
 char *getCallInfoString(struct sipline_call_info *call_info) {
     size_t needed = snprintf(NULL, 0, "{\"type\":%d,\"from\":%s,\"to\":%s}", call_info->type,
@@ -26,11 +9,6 @@ char *getCallInfoString(struct sipline_call_info *call_info) {
     return buffer;
 }
 
-/**
- * Send call information to remove server as API request
- * @param call_info
- * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
- */
 int informServer(struct sipline_call_info *call_info) {
     int ret_curl = EXIT_SUCCESS;
     CURL *curl;
@@ -61,12 +39,6 @@ int informServer(struct sipline_call_info *call_info) {
     return ret_curl;
 }
 
-/**
- * Parse SIP message via osip lib
- * @param payload buffer to parse into sip message
- * @param payload_length buffer length to parse
- * @return on Success return sipline_call_info struct else NULL
- */
 struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length) {
     int ret_code = EXIT_SUCCESS;
     osip_message_t *sip = NULL;
@@ -114,22 +86,12 @@ struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_leng
     return call_info;
 }
 
-/**
- * Parse package payload into ethernet struct
- * @param packet to check if ethernet
- * @return sipline_ether_header if ether packet else NULL
- */
 static inline struct sipline_ethernet_header *getEthernetHeader(const u_char *packet) {
     struct sipline_ethernet_header *eth_header;
     eth_header = (struct sipline_ethernet_header *) packet;
     return eth_header;
 }
 
-/**
- * Parse package payload int ip package and check if it is a valid IP4
- * @param packet to check if ip
- * @return sipline_ip_header if ip packet else NULL
- */
 static inline struct sipline_ip_header *getIpHeader(const u_char *packet) {
     struct sipline_ethernet_header *ethernet_header = getEthernetHeader(packet);
     if (NULL == ethernet_header) {
@@ -152,11 +114,6 @@ static inline struct sipline_ip_header *getIpHeader(const u_char *packet) {
     return ip_header;
 }
 
-/**
- * Parse UDP package from package payload and check if valid IP4 and UDP
- * @param packet to check if ip
- * @return sipline_ip_header if ip packet else NULL
- */
 static inline struct sipline_udp_header *getUdpHeader(const u_char *packet) {
     struct sipline_ip_header *ip_header = getIpHeader(packet);
     if (NULL == ip_header) {
@@ -176,12 +133,6 @@ static inline struct sipline_udp_header *getUdpHeader(const u_char *packet) {
     return udp_header;
 }
 
-/**
- * SIP callback handler
- * @param args passed by listener to callback
- * @param header including some stuff
- * @param packet raw package to analyze
- */
 void sipPacketHandler(
         u_char *args,
         const struct pcap_pkthdr *header,
@@ -224,13 +175,6 @@ void sipPacketHandler(
     free(call_info);
 }
 
-/**
- * Simple program argument parser, parse network interface name from argument with index 1
- * @param argc program argument count
- * @param argv program argument values
- * @param interface char pointer to parsed interface, on failure set to NULL
- * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
- */
 int parseInterfaceFromParams(int argc, char *argv[], char **interface) {
     free(*interface);
     *interface = NULL;
@@ -258,11 +202,6 @@ int parseInterfaceFromParams(int argc, char *argv[], char **interface) {
     return EXIT_SUCCESS;
 }
 
-/**
- * Compile and apply SIP filter to pcap_t handle
- * @param handle
- * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
- */
 int applySipFilter(pcap_t **handle) {
     int ret_code = EXIT_SUCCESS;
     struct bpf_program filter;
@@ -290,22 +229,11 @@ int applySipFilter(pcap_t **handle) {
     return ret_code;
 }
 
-/**
- * Setup live network traffic parsing via libpcap
- * @param interface name to start sniffing
- * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
- */
 int setupLivePcapParsing(char *interface) {
     fprintf(stdout, "Setup live monitoring on interface: %s\n", interface);
     return EXIT_SUCCESS;
 }
 
-/**
- * Setup file network traffic parsing via libpcap
- * @param parent_handler pcap_t handle set after opening file and apply filter
- * @param filename to pcap file for analysing
- * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
- */
 int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
     fprintf(stdout, "Start setup pcap file: %s\n", filename);
 
@@ -330,13 +258,6 @@ int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
     return EXIT_SUCCESS;
 }
 
-/**
- * Start PCAP SIP listener and sniff until we kill the program
- * @param handle to start listen on
- * @param callback to call for each packages
- * @param callback_args to pass to callback function
- * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
- */
 int startSipListener(pcap_t *handle, pcap_handler callback, u_char *callback_args) {
     if (NULL == handle) {
         fprintf(stderr, "Please provide a proper pcap handle to start SIP listening");
@@ -351,10 +272,6 @@ int startSipListener(pcap_t *handle, pcap_handler callback, u_char *callback_arg
     return 0 == ret_loop ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-/**
- * Register osip state machine with all callbacks
- * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
- */
 int registerOsip(osip_t **osip) {
     fprintf(stdout, "Start to register osip state machine started\n");
     int ret_osip = osip_init(osip);
