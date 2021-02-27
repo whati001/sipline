@@ -105,7 +105,7 @@ int applySipFilter(pcap_t **handle);
  * @param interface name to start sniffing
  * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
-int setupLivePcapParsing(char *interface);
+int setupLivePcapParsing(pcap_t **parent_handler, char *interface);
 
 /**
  * Setup file network traffic parsing via libpcap

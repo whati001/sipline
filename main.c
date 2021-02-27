@@ -229,7 +229,29 @@ int applySipFilter(pcap_t **handle) {
     return ret_code;
 }
 
-int setupLivePcapParsing(char *interface) {
+int setupLivePcapParsing(pcap_t **parent_handler, char *interface) {
+    fprintf(stdout, "Setup live monitoring on interface: %s\n", interface);
+
+    pcap_t *handle;
+    char err_buf[PCAP_ERRBUF_SIZE];
+
+    fprintf(stdout, "Try to open interface for package readling\n");
+    handle = pcap_open_live(interface, BUFSIZ, 1, 1000, err_buf);
+    if (NULL == handle) {
+        fprintf(stderr, "Failed to open network interface: %s\n", interface);
+        fprintf(stderr, "PcapError: %s\n", err_buf);
+        return EXIT_FAILURE;
+    }
+
+    if (EXIT_FAILURE == applySipFilter(&handle)) {
+        fprintf(stderr, "Failed to apply sip filter");
+        pcap_close(handle);
+        return EXIT_FAILURE;
+    }
+
+    *parent_handler = handle;
+    fprintf(stdout, "Done setup interface: %s\n", interface);
+
     fprintf(stdout, "Setup live monitoring on interface: %s\n", interface);
     return EXIT_SUCCESS;
 }
@@ -244,6 +266,7 @@ int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
     handle = pcap_open_offline(filename, err_buf);
     if (NULL == handle) {
         fprintf(stderr, "Failed to open pcap file: %s\n", filename);
+        fprintf(stderr, "PcapError: %s\n", err_buf);
         return EXIT_FAILURE;
     }
 
@@ -304,10 +327,9 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    // TODO: add relative addressing
-    ret_code = setupFilePcapParsing(&handle, "/home/akarner/rehka/sipline/test/testPackages.pcap");
+    ret_code = setupLivePcapParsing(&handle, interface);
     if (EXIT_FAILURE == ret_code) {
-        fprintf(stderr, "Failed to analyze provided pcap file\n");
+        fprintf(stderr, "Failed to analyze traffic on interface: %s\n", interface);
         goto cleanup;
     }
 
@@ -318,7 +340,9 @@ int main(int argc, char *argv[]) {
     }
 
     cleanup:
-    pcap_close(handle);
+    if (NULL != handle) {
+        pcap_close(handle);
+    }   
     osip_release(osip);
     free(interface);
 
