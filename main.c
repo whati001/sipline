@@ -342,7 +342,7 @@ int main(int argc, char *argv[]) {
     cleanup:
     if (NULL != handle) {
         pcap_close(handle);
-    }   
+    }
     osip_release(osip);
     free(interface);
 
