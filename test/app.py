@@ -31,7 +31,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 print("DEBUG: Received body: {}".format(bodyPayload))
                 bodyObject = json.loads(bodyPayload)
                 print("DEBUG: Received parsed object: {}".format(bodyObject))
-                if bodyObject and bodyObject['type'] == "INVITE":
+                if bodyObject and bodyObject['type'] == 0:
                     print("New POST request received, start playing a nice phone sound")
                     p = vlc.MediaPlayer("file://{}".format(SOUND))
                     p.play()
