@@ -72,13 +72,15 @@ struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_leng
 //            *call_info = (struct sipline_call_info) {
 //                    SIP_INVITE_CODE, strdup(osip_message_get_from(sip)->displayname),
 //                    strdup(osip_message_get_to(sip)->displayname)};
-            *call_info = (struct sipline_call_info) {SIP_INVITE_CODE, strdup("NOT_SET"), strdup("NOT_SET")};
+            *call_info = (struct sipline_call_info) {SIP_INVITE_CODE, strdup("\"UNKNOWN\""),
+                                                     strdup(osip_message_get_to(sip)->displayname)};
             fprintf(stdout, "%s Request{from: %s, to: %s}\n", SIP_INVITE_LABEL, call_info->from, call_info->to);
         } else if (strncmp(SIP_CANCEL_LABEL, sip_method, strlen(SIP_CANCEL_LABEL)) == 0) {
-            call_info = (struct sipline_call_info *) calloc(sizeof(struct sipline_call_info), 1);
-            *call_info = (struct sipline_call_info) {
-                    SIP_CANCEL_CODE, strdup(osip_message_get_from(sip)->displayname),
-                    strdup(osip_message_get_to(sip)->displayname)};
+            call_info = NULL;
+//            call_info = (struct sipline_call_info *) calloc(sizeof(struct sipline_call_info), 1);
+//            *call_info = (struct sipline_call_info) {
+//                    SIP_CANCEL_CODE, strdup(osip_message_get_from(sip)->displayname),
+//                    strdup(osip_message_get_to(sip)->displayname)};
             fprintf(stdout, "%s Request{from: %s, to: %s}\n", SIP_CANCEL_LABEL, call_info->from, call_info->to);
         }
     }
