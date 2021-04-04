@@ -13,16 +13,26 @@
 #include "sipnet.h"
 #include "sipqueue.h"
 
+typedef struct {
+    char *nic_name;
+    pcap_t *pcap_handle;
+    osip_t *osip_parser;
+    pthread_t *notify_thread;
+} sipline_t;
+
 /**
  * Init sipline and set global variables listed above
+ * @param sipline
+ * @param interface_name
  * @return on success we return EXIT_SUCESS, otherwise EXIT_FAILURE
  */
-int initializeSipline(const char *interface_name);
+int initializeSipline(sipline_t **sipline, char *interface_name);
 
 /**
  * Destroy sipline instance
+ * @param sipline
  * @return on success we return EXIT_SUCESS, otherwise EXIT_FAILURE
  */
-int destroySipline();
+int destroySipline(sipline_t *sipline);
 
 #endif //SIPLINE_SIPLINE_H

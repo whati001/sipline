@@ -8,25 +8,24 @@
 
 int main(int argc, char *argv[]) {
     int ret_code = EXIT_SUCCESS;
-    char *nic_name = NULL;
-    pcap_t *pcap_handle = NULL;
-    osip_t *osip_parser = NULL;
-    pthread_t *notify_thread = NULL;
+    char *parsed_nic_name = NULL;
+    sipline_t *sipline = NULL;
 
-    ret_code = parseInterfaceFromParams(argc, argv, &nic_name);
+    ret_code = parseInterfaceFromParams(argc, argv, &parsed_nic_name);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stdout, "Usage: ./sipline <nic_name>\n");
         goto cleanup;
     }
-    fprintf(stdout, "Start analysing SIP traffic on interface: %s\n", nic_name);
 
-    ret_code = initializeSipline(nic_name);
+    ret_code = initializeSipline(&sipline, parsed_nic_name);
     if (EXIT_FAILURE == ret_code) {
-        fprintf(stderr, "Faied to initialize sipline process, shutdown started\n");
+        fprintf(stderr, "Failed to initialize sipline process, shutdown started\n");
         goto cleanup;
     }
+    fprintf(stdout, "Start analysing SIP traffic on interface: %s\n", sipline->nic_name);
 
     cleanup:
-    destroySipline();
+FLUSH_OUTPUT;
+    destroySipline(sipline);
     return ret_code;
 }
