@@ -13,7 +13,6 @@
 #include <curl/curl.h>
 
 #include "siplinenet.h"
-#include "osip.h"
 
 // enable/disable some more login -> please do not use in production
 #define DEBUG 0
@@ -37,14 +36,14 @@
  * @param call_info
  * @return char* to json version call_info struct
  */
-char *getCallInfoString(struct sipline_call_info *call_info);
+char *getCallInfoString(sipline_call_info *call_info);
 
 /**
  * Send call information to remove server as API request
  * @param call_info
  * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
-int informServer(struct sipline_call_info *call_info);
+int informServer(sipline_call_info *call_info);
 
 /**
  * Parse SIP message via osip lib
@@ -52,7 +51,7 @@ int informServer(struct sipline_call_info *call_info);
  * @param payload_length buffer length to parse
  * @return on Success return sipline_call_info struct else NULL
  */
-struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length);
+sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length);
 
 
 /**
@@ -60,21 +59,21 @@ struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_leng
  * @param packet to check if ethernet
  * @return sipline_ether_header if ether packet else NULL
  */
-static inline struct sipline_ethernet_header *getEthernetHeader(const u_char *packet);
+static struct sipline_ethernet_header *getEthernetHeader(const u_char *packet);
 
 /**
  * Parse package payload int ip package and check if it is a valid IP4
  * @param packet to check if ip
  * @return sipline_ip_header if ip packet else NULL
  */
-static inline struct sipline_ip_header *getIpHeader(const u_char *packet);
+static struct sipline_ip_header *getIpHeader(const u_char *packet);
 
 /**
  * Parse UDP package from package payload and check if valid IP4 and UDP
  * @param packet to check if ip
  * @return sipline_ip_header if ip packet else NULL
  */
-static inline struct sipline_udp_header *getUdpHeader(const u_char *packet);
+static struct sipline_udp_header *getUdpHeader(const u_char *packet);
 
 /**
  * SIP callback handler

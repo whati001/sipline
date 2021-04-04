@@ -54,10 +54,10 @@ struct sipline_udp_header {
 };
 
 
-struct sipline_call_info {
+typedef struct {
     uint8_t type;
     char *from;
     char *to;
-};
+} sipline_call_info;
 
 #endif //SIPLINE_SIPLINENET_H

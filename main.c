@@ -1,7 +1,9 @@
 
 #include "sipline.h"
+#include "osip.h"
+#include "queue.h"
 
-char *getCallInfoString(struct sipline_call_info *call_info) {
+char *getCallInfoString(sipline_call_info *call_info) {
     size_t needed = snprintf(NULL, 0, "{\"type\":%d,\"from\":%s,\"to\":%s}", call_info->type,
                              call_info->from, call_info->to);
     char *buffer = (char *) calloc(sizeof(char), needed + 1);
@@ -9,7 +11,7 @@ char *getCallInfoString(struct sipline_call_info *call_info) {
     return buffer;
 }
 
-int informServer(struct sipline_call_info *call_info) {
+int informServer(sipline_call_info *call_info) {
     int ret_curl = EXIT_SUCCESS;
     CURL *curl;
     CURLcode res;
@@ -39,10 +41,10 @@ int informServer(struct sipline_call_info *call_info) {
     return ret_curl;
 }
 
-struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length) {
+sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length) {
     int ret_code = EXIT_SUCCESS;
     osip_message_t *sip = NULL;
-    struct sipline_call_info *call_info = NULL;
+    sipline_call_info *call_info = NULL;
 
     if (EXIT_SUCCESS != osip_message_init(&sip)) {
         fprintf(stderr, "Failed to allocate new osip message\n");
@@ -71,21 +73,14 @@ struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_leng
             if (NULL == osip_message_get_to(sip)->displayname) {
                 call_info = NULL;
             } else {
-                call_info = (struct sipline_call_info *) calloc(sizeof(struct sipline_call_info), 1);
+                call_info = (sipline_call_info *) calloc(sizeof(sipline_call_info), 1);
 //            *call_info = (struct sipline_call_info) {
 //                    SIP_INVITE_CODE, strdup(osip_message_get_from(sip)->displayname),
 //                    strdup(osip_message_get_to(sip)->displayname)};
-                *call_info = (struct sipline_call_info) {SIP_INVITE_CODE, strdup("\"UNKNOWN\""),
-                                                         strdup(osip_message_get_to(sip)->displayname)};
+                *call_info = (sipline_call_info) {SIP_INVITE_CODE, strdup("\"UNKNOWN\""),
+                                                  strdup(osip_message_get_to(sip)->displayname)};
                 fprintf(stdout, "%s Request{from: %s, to: %s}\n", SIP_INVITE_LABEL, call_info->from, call_info->to);
             }
-        } else if (strncmp(SIP_CANCEL_LABEL, sip_method, strlen(SIP_CANCEL_LABEL)) == 0) {
-            call_info = NULL;
-//            call_info = (struct sipline_call_info *) calloc(sizeof(struct sipline_call_info), 1);
-//            *call_info = (struct sipline_call_info) {
-//                    SIP_CANCEL_CODE, strdup(osip_message_get_from(sip)->displayname),
-//                    strdup(osip_message_get_to(sip)->displayname)};
-//            fprintf(stdout, "%s Request{from: %s, to: %s}\n", SIP_CANCEL_LABEL, call_info->from, call_info->to);
         }
     }
 
@@ -93,13 +88,13 @@ struct sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_leng
     return call_info;
 }
 
-static inline struct sipline_ethernet_header *getEthernetHeader(const u_char *packet) {
+struct sipline_ethernet_header *getEthernetHeader(const u_char *packet) {
     struct sipline_ethernet_header *eth_header;
     eth_header = (struct sipline_ethernet_header *) packet;
     return eth_header;
 }
 
-static inline struct sipline_ip_header *getIpHeader(const u_char *packet) {
+struct sipline_ip_header *getIpHeader(const u_char *packet) {
     struct sipline_ethernet_header *ethernet_header = getEthernetHeader(packet);
     if (NULL == ethernet_header) {
         fprintf(stdout, "No Ethernet package found, skip package\n");
@@ -121,7 +116,7 @@ static inline struct sipline_ip_header *getIpHeader(const u_char *packet) {
     return ip_header;
 }
 
-static inline struct sipline_udp_header *getUdpHeader(const u_char *packet) {
+struct sipline_udp_header *getUdpHeader(const u_char *packet) {
     struct sipline_ip_header *ip_header = getIpHeader(packet);
     if (NULL == ip_header) {
         fprintf(stdout, "No IP packet received, this should not happen within sipline application\n");
@@ -167,7 +162,7 @@ void sipPacketHandler(
 //    fprintf(stdout, "Some Payload: %s\n", payload);
 #endif
 
-    struct sipline_call_info *call_info = parseSipMessage(payload, payload_length);
+    sipline_call_info *call_info = parseSipMessage(payload, payload_length);
     if (NULL == call_info) {
         fprintf(stdout, "Something unrealted sniffed, ignore package\n");
         return;
@@ -317,6 +312,7 @@ int registerOsip(osip_t **osip) {
 int main(int argc, char *argv[]) {
     int ret_code = EXIT_SUCCESS;
     char *interface = NULL;
+    signal_queue *queue;
     osip_t *osip = NULL;
     pcap_t *handle = NULL;
 
@@ -328,15 +324,20 @@ int main(int argc, char *argv[]) {
     }
     fprintf(stdout, "Start analysing SIP traffic on interface: %s\n", interface);
 
+    ret_code = initSignalQueue(&queue);
+    if (EXIT_FAILURE == ret_code) {
+        fprintf(stderr, "Failed to register signal queue properly");
+        goto cleanup;
+    }
+
     ret_code = registerOsip(&osip);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to register osip watch properly");
         goto cleanup;
     }
 
-
-    ret_code = setupLivePcapParsing(&handle, interface);
-//    ret_code = setupFilePcapParsing(&handle, "/run/media/akarner/5125-83A9/goForIt.pcapng");
+//    ret_code = setupLivePcapParsing(&handle, interface);
+    ret_code = setupFilePcapParsing(&handle, argv[1]);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to analyze traffic on interface: %s\n", interface);
         goto cleanup;
@@ -352,6 +353,8 @@ int main(int argc, char *argv[]) {
     if (NULL != handle) {
         pcap_close(handle);
     }
+
+    freeSignalQueue(queue);
     osip_release(osip);
     free(interface);
 
