@@ -13,6 +13,7 @@
 #include <curl/curl.h>
 
 #include "siplinenet.h"
+#include "osip.h"
 
 // enable/disable some more login -> please do not use in production
 #define DEBUG 0
