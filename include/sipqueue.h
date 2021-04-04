@@ -2,14 +2,12 @@
 // Created by akarner on 4/4/21.
 //
 
-#ifndef SIPLINE_QUEUE_H
-#define SIPLINE_QUEUE_H
+#ifndef SIPLINE_SIPQUEUE_H
+#define SIPLINE_SIPQUEUE_H
 
 #include <pthread.h>
-#include "sipline.h"
+#include "siplib.h"
 
-
-#define FLUSH_OUTPUT { fflush(stdout); fflush(stderr); } while(0)
 /**
  * Signal queue item
  */
@@ -63,6 +61,6 @@ int popSignalQueue(signal_queue *queue, sipline_call_info **call_info);
  * Free and close Signal queue
  * @param queue to cleanup
  */
-void freeSignalQueue(signal_queue* queue);
+void freeSignalQueue(signal_queue *queue);
 
-#endif //SIPLINE_QUEUE_H
+#endif //SIPLINE_SIPQUEUE_H

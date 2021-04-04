@@ -1,10 +1,9 @@
 //
-// Created by akarner on 2/25/21.
+// Created by akarner on 4/4/21.
 //
 
-#ifndef SIPLINE_SIPLINENET_H
-#define SIPLINE_SIPLINENET_H
-
+#ifndef SIPLINE_SIPNET_H
+#define SIPLINE_SIPNET_H
 
 /**
  * Ethernet header information
@@ -53,11 +52,4 @@ struct sipline_udp_header {
     u_short uh_sum;
 };
 
-
-typedef struct {
-    uint8_t type;
-    char *from;
-    char *to;
-} sipline_call_info;
-
-#endif //SIPLINE_SIPLINENET_H
+#endif //SIPLINE_SIPNET_H
