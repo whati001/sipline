@@ -2,7 +2,7 @@
 // Created by akarner on 4/4/21.
 //
 
-#include "queue.h"
+#include "check_queue.h"
 
 int initSignalQueue(signal_queue **queue) {
     signal_queue *tmp = (signal_queue *) malloc(sizeof(signal_queue));

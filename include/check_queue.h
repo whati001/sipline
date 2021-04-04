@@ -2,8 +2,8 @@
 // Created by akarner on 4/4/21.
 //
 
-#ifndef SIPLINE_QUEUE_H
-#define SIPLINE_QUEUE_H
+#ifndef SIPLINE_CHECK_QUEUE_H
+#define SIPLINE_CHECK_QUEUE_H
 
 #include <pthread.h>
 #include "sipline.h"
@@ -65,4 +65,4 @@ int popSignalQueue(signal_queue *queue, sipline_call_info **call_info);
  */
 void freeSignalQueue(signal_queue* queue);
 
-#endif //SIPLINE_QUEUE_H
+#endif //SIPLINE_CHECK_QUEUE_H

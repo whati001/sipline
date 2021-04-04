@@ -1,7 +1,7 @@
 
 #include "sipline.h"
 #include "osip.h"
-#include "queue.h"
+#include "check_queue.h"
 
 char *getCallInfoString(sipline_call_info *call_info) {
     size_t needed = snprintf(NULL, 0, "{\"type\":%d,\"from\":%s,\"to\":%s}", call_info->type,
