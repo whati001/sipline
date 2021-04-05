@@ -11,7 +11,7 @@
 
 #include "siplib.h"
 #include "sipnet.h"
-#include "sipqueue.h"
+#include "ping/pingqueue.h"
 
 typedef struct {
     char *nic_name;

@@ -4,7 +4,6 @@
 
 #include <stdlib.h>
 #include "sipline.h"
-#include "siplib.h"
 
 int main(int argc, char *argv[]) {
     int ret_code = EXIT_SUCCESS;
