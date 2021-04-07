@@ -24,7 +24,8 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Start analysing SIP traffic on interface: %s\n", sipline->nic_name);
 
     cleanup:
-FLUSH_OUTPUT;
+    free(parsed_nic_name);
     destroySipline(sipline);
+    FLUSH_OUTPUT;
     return ret_code;
 }

@@ -9,15 +9,14 @@
 #include <osip2/osip.h>
 #include <pthread.h>
 
+#include "ping/pingservice.h"
 #include "siplib.h"
-#include "sipnet.h"
-#include "ping/pingqueue.h"
 
 typedef struct {
     char *nic_name;
     pcap_t *pcap_handle;
     osip_t *osip_parser;
-    pthread_t *notify_thread;
+    ping_service_t *ping_service;
 } sipline_t;
 
 /**
@@ -33,6 +32,6 @@ int initializeSipline(sipline_t **sipline, char *interface_name);
  * @param sipline
  * @return on success we return EXIT_SUCESS, otherwise EXIT_FAILURE
  */
-int destroySipline(sipline_t *sipline);
+void destroySipline(sipline_t *sipline);
 
 #endif //SIPLINE_SIPLINE_H

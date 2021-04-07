@@ -5,4 +5,6 @@
 #ifndef SIPLINE_PINGWORKER_H
 #define SIPLINE_PINGWORKER_H
 
+void *workerRoutine(void *args);
+
 #endif //SIPLINE_PINGWORKER_H
