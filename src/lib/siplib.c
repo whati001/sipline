@@ -6,8 +6,139 @@
 #include <stdlib.h>
 #include <string.h>
 #include <osip2/osip.h>
+#include <sipline.h>
 
 #include "siplib.h"
+#include "sipnet.h"
+
+sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length) {
+    osip_message_t *sip = NULL;
+    sipline_call_info *call_info = NULL;
+
+    if (EXIT_SUCCESS != osip_message_init(&sip)) {
+        fprintf(stderr, "Failed to allocate new osip message\n");
+        return NULL;
+    }
+
+    if (EXIT_SUCCESS != osip_message_parse(sip, ((const char *) payload), payload_length)) {
+        call_info = NULL;
+        goto cleanup;
+    }
+
+    char *sip_method = osip_message_get_method(sip);
+    if (NULL == sip_method) {
+//        fprintf(stdout, "SIP Answer received, ignored by sipline application\n");
+        call_info = NULL;
+        goto cleanup;
+    }
+
+    if (strncmp(SIP_INVITE_LABEL, sip_method, strlen(SIP_INVITE_LABEL)) == 0) {
+        if (NULL == osip_message_get_to(sip)->displayname) {
+            call_info = NULL;
+            goto cleanup;
+        }
+
+        call_info = (sipline_call_info *) malloc(sizeof(sipline_call_info));
+        call_info->type = SIP_INVITE_CODE;
+        call_info->to = strdup(osip_message_get_to(sip)->displayname);
+        call_info->from = (NULL == osip_message_get_from(sip)->displayname) ? strdup("\"UNKNOWN\"") : strdup(
+                osip_message_get_from(sip)->displayname);
+        fprintf(stdout, "%s Request{from: %s, to: %s}\n", SIP_INVITE_LABEL, call_info->from, call_info->to);
+    }
+
+    cleanup:
+    osip_message_free(sip);
+    return call_info;
+}
+
+struct sipline_ethernet_header *getEthernetHeader(const u_char *packet) {
+    struct sipline_ethernet_header *eth_header;
+    eth_header = (struct sipline_ethernet_header *) packet;
+    return eth_header;
+}
+
+struct sipline_ip_header *getIpHeader(const u_char *packet) {
+    struct sipline_ethernet_header *ethernet_header = getEthernetHeader(packet);
+    if (NULL == ethernet_header) {
+        fprintf(stdout, "No Ethernet package found, skip package\n");
+        return NULL;
+    }
+
+    if (ETHER_IP != ntohs(ethernet_header->ether_type)) {
+        fprintf(stdout, "No IP4 in ethernet package, skip packet\n");
+        return NULL;
+    }
+
+    struct sipline_ip_header *ip_header;
+    ip_header = (struct sipline_ip_header *) (((u_char *) ethernet_header) + SIZE_ETHERNET);
+    u_int size_ip = IP_HL(ip_header) * 4;
+    if (IP_MIN_LENGHT > size_ip) {
+        printf("IP4 packet size is smaller than minimum, properly not a valid IP4 packet\n");
+        return NULL;
+    }
+    return ip_header;
+}
+
+struct sipline_udp_header *getUdpHeader(const u_char *packet) {
+    struct sipline_ip_header *ip_header = getIpHeader(packet);
+    if (NULL == ip_header) {
+        fprintf(stdout, "No IP packet received, this should not happen within sipline application\n");
+        return NULL;
+    }
+    if (IP_PROTO_UDP != ip_header->ip_p) {
+        return NULL;
+    }
+
+    const uint16_t size_ip = IP_HL(ip_header) * 4;
+    struct sipline_udp_header *udp_header = (struct sipline_udp_header *) (((u_char *) ip_header) + size_ip);
+    if (SIZE_UDP > udp_header->uh_len) {
+        printf("Invalid IP header length: %u bytes\n", size_ip);
+        return NULL;
+    }
+    return udp_header;
+}
+
+void pcapSipPackageHandler(
+        u_char *args,
+        const struct pcap_pkthdr *header,
+        const u_char *packet
+) {
+    ping_queue_t *queue = (ping_queue_t *) args;
+    const struct sipline_udp_header *udp_header = getUdpHeader(packet);
+    if (NULL == udp_header) {
+        fprintf(stdout, "Not UDP header found in received package, skip it\n");
+        return;
+    }
+    u_char *payload = ((u_char *) udp_header) + SIZE_UDP;
+    uint32_t payload_length = ntohs(udp_header->uh_len) - SIZE_UDP;
+
+    sipline_call_info *call_info = parseSipMessage(payload, payload_length);
+    if (NULL == call_info) {
+        return;
+    }
+
+    ping_task_t *task = (ping_task_t *) malloc(sizeof(ping_task_t));
+    *task = (ping_task_t) {
+            HTTP,
+            strdup("localhost"),
+            2711,
+            POST,
+            strdup("ringBell"),
+            strdup("someBody"),
+            NULL
+    };
+    fprintf(stdout, "Created new task, push to ping queue\n");
+
+
+    if (EXIT_FAILURE == pushPingTask(queue, task)) {
+        fprintf(stdout, "Failed to push  new signal task to queue, let's hope next one works\n");
+    }
+
+    free(call_info->from);
+    free(call_info->to);
+    free(call_info);
+}
+
 
 int parseInterfaceFromParams(int argc, char *argv[], char **interface) {
     free(*interface);
@@ -36,7 +167,7 @@ int parseInterfaceFromParams(int argc, char *argv[], char **interface) {
     return EXIT_SUCCESS;
 }
 
-int applySipFilter(pcap_t **handle) {
+int applyPcapSipFilter(pcap_t **handle) {
     int ret_code = EXIT_SUCCESS;
     struct bpf_program filter;
 
@@ -77,7 +208,7 @@ int setupLivePcapParsing(pcap_t **parent_handler, char *interface) {
         return EXIT_FAILURE;
     }
 
-    if (EXIT_FAILURE == applySipFilter(&handle)) {
+    if (EXIT_FAILURE == applyPcapSipFilter(&handle)) {
         fprintf(stderr, "Failed to apply sip filter");
         pcap_close(handle);
         return EXIT_FAILURE;
@@ -104,7 +235,7 @@ int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
         return EXIT_FAILURE;
     }
 
-    if (EXIT_FAILURE == applySipFilter(&handle)) {
+    if (EXIT_FAILURE == applyPcapSipFilter(&handle)) {
         fprintf(stderr, "Failed to apply sip filter");
         pcap_close(handle);
         return EXIT_FAILURE;
@@ -115,16 +246,13 @@ int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
     return EXIT_SUCCESS;
 }
 
-int startSipListener(pcap_t *handle, pcap_handler callback, u_char *callback_args) {
+int startPcapCaptureLoop(pcap_t *handle, ping_queue_t *queue) {
     if (NULL == handle) {
         fprintf(stderr, "Please provide a proper pcap handle to start SIP listening");
         return EXIT_FAILURE;
     }
-    if (NULL == callback) {
-        fprintf(stdout, "No callback function for pcap loop passed, are you sure you want to burn engergy?");
-    }
 
-    int ret_loop = pcap_loop(handle, 0, callback, callback_args);
+    int ret_loop = pcap_loop(handle, 0, pcapSipPackageHandler, (u_char *) queue);
     fprintf(stdout, "Pcap loop ended with return code: %d\n", ret_loop);
     return 0 == ret_loop ? EXIT_SUCCESS : EXIT_FAILURE;
 }
@@ -140,3 +268,4 @@ int registerOsip(osip_t **osip) {
     fprintf(stdout, "Registered osip state machine properly\n");
     return EXIT_SUCCESS;
 }
+

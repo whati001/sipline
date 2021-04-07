@@ -8,6 +8,18 @@
 #include <stdio.h>
 #include <stdint.h>
 
+char *stringifyPingTask(ping_task_t *task) {
+    if (NULL == task) {
+        return NULL;
+    }
+    size_t needed = snprintf(NULL, 0, "PingTask{protocol: %d,host: %s,port: %d,method: %d, query: %s, body: %s}",
+                             task->protocol, task->host, task->port, task->method, task->query, task->body);
+    char *buffer = (char *) calloc(sizeof(char), needed + 1);
+    sprintf(buffer, "PingTask{protocol: %d,host: %s,port: %d,method: %d, query: %s, body: %s}",
+            task->protocol, task->host, task->port, task->method, task->query, task->body);
+    return buffer;
+}
+
 int initPingQueue(ping_queue_t **queue, uint8_t capacity) {
     ping_queue_t *tmp = (ping_queue_t *) malloc(sizeof(ping_queue_t));
     if (NULL == tmp) {
@@ -26,7 +38,7 @@ int initPingQueue(ping_queue_t **queue, uint8_t capacity) {
     return EXIT_SUCCESS;
 }
 
-void _destroyPingTask(ping_task_t *task) {
+void destroyPingTask(ping_task_t *task) {
     if (NULL == task) {
         return;
     }
@@ -47,7 +59,7 @@ void destroyPingQueue(ping_queue_t *queue) {
             fprintf(stdout, "Remove remaining task from queue: "
                             "PingTask{prot: %d, host: %s, port: %d, method: %d, query: %s, body: %s}\n",
                     tmp->protocol, tmp->host, tmp->port, tmp->method, tmp->query, tmp->body);
-            _destroyPingTask(tmp);
+            destroyPingTask(tmp);
         }
     }
     fprintf(stdout, "Freed all ping tasks from queue before destroying the queue itself\n");

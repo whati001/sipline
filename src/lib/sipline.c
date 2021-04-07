@@ -22,7 +22,7 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
         return ret_code;
     }
 
-    // ret_code = setupFilePcapParsing(&sipline->pcap_handle, "/run/media/akarner/5125-83A9/goForIt.pcapng");
+//    ret_code = setupFilePcapParsing(&sipline->pcap_handle, "/home/akarner/Downloads/phoneCapture/goForIt.pcapng");
     ret_code = setupLivePcapParsing(&sipline->pcap_handle, sipline->nic_name);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to setup pcap for interface: %s\n", interface);
@@ -32,7 +32,6 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
         return ret_code;
     }
 
-    // TODO: setup ping_service_t
     ret_code = initPingService(&sipline->ping_service);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to setup ping service\n");
@@ -49,6 +48,21 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
     return ret_code;
 }
 
+int startSipline(sipline_t *sipline) {
+    if (NULL == sipline) {
+        return EXIT_FAILURE;
+    }
+    fprintf(stdout, "Start analysing SIP traffic on interface: %s\n", sipline->nic_name);
+
+    if (EXIT_FAILURE == startPingService(sipline->ping_service)) {
+        fprintf(stderr, "Failed to start ping service, shutdown sipline graceful\n");
+        return EXIT_FAILURE;
+    }
+
+    return startPcapCaptureLoop(sipline->pcap_handle, sipline->ping_service->ping_queue);
+
+}
+
 void destroySipline(sipline_t *sipline) {
     if (NULL == sipline) {
         return;
@@ -59,6 +73,11 @@ void destroySipline(sipline_t *sipline) {
         pcap_close(sipline->pcap_handle);
     }
     osip_release(sipline->osip_parser);
-//    pthread_join(sipline->notify_thread);
+
+    pthread_cancel(sipline->ping_service->worker_thread);
+    pthread_join(sipline->ping_service->worker_thread, NULL);
+
+    destroyPingQueue(sipline->ping_service->ping_queue);
+    free(sipline->ping_service);
     free(sipline);
 }

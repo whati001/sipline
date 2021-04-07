@@ -6,8 +6,8 @@
 #   It only handels the INVITE type from incomming POST requests
 ##
 
-import pathlib
 import json
+import pathlib
 import vlc
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -18,6 +18,7 @@ PORT = 2711
 # define sound to play
 SOUND = str(pathlib.Path().joinpath('sirenSound.mp3').absolute())
 
+
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
@@ -26,7 +27,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         if contentLength:
             bodyLength = int(contentLength)
             bodyPayload = self.rfile.read(bodyLength)
-            
+
             try:
                 print("DEBUG: Received body: {}".format(bodyPayload))
                 bodyObject = json.loads(bodyPayload)
@@ -42,8 +43,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b'Hello from server')        
-
+        self.wfile.write(b'Hello from server')
 
 
 print("Initiate HTTPServer for playing bell sound")

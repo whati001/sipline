@@ -47,6 +47,13 @@ typedef struct {
 } ping_queue_t;
 
 /**
+ * Task to stringify and return char pointer
+ * @param task
+ * @return pointer to allocated string, on failure it returns NULL
+ */
+char* stringifyPingTask(ping_task_t* task);
+
+/**
  * Initialize new ping queue to publish work for pingwoker.c
  * @param queue pointer pointer to store new ping_queue_t instance to
  * @param capacity define capacity for queue
@@ -58,7 +65,7 @@ int initPingQueue(ping_queue_t **queue, uint8_t capacity);
  * Destroy and free everything properly
  * @param task pointer to object
  */
-void _destroyPingTask(ping_task_t *task);
+void destroyPingTask(ping_task_t *task);
 
 /**
  * Destroy and free everything properly. This will also free all remaining tasks

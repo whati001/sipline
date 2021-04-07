@@ -17,4 +17,6 @@ typedef struct {
 
 int initPingService(ping_service_t **ping_service);
 
+int startPingService(ping_service_t *ping_service);
+
 #endif //SIPLINE_PINGSERVICE_H

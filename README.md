@@ -132,10 +132,11 @@ After installing all the libs, the hard stuff is done. Just clone and build the 
 > cmake ..
 > make
 ```
+
 All done.
 
 # Open Stuff
 
-Current only pcap file analysis is supported. This is mainly due to the fact that I have no access to the SIP traffic yet.
-But live sniffing feature get added shortly.
+Current only pcap file analysis is supported. This is mainly due to the fact that I have no access to the SIP traffic
+yet. But live sniffing feature get added shortly.
 

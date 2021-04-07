@@ -28,6 +28,12 @@ typedef struct {
 int initializeSipline(sipline_t **sipline, char *interface_name);
 
 /**
+ * Start sipline passed in argument
+ * @param sipline
+ */
+int startSipline(sipline_t *sipline);
+
+/**
  * Destroy sipline instance
  * @param sipline
  * @return on success we return EXIT_SUCESS, otherwise EXIT_FAILURE

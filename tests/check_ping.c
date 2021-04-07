@@ -64,7 +64,7 @@ START_TEST(test_pingqueue_push_pop) {
     ck_assert_str_eq(task->query, pop_task->query);
     ck_assert_str_eq(task->body, pop_task->body);
 
-    _destroyPingTask(pop_task);
+    destroyPingTask(pop_task);
     destroyPingQueue(queue);
 }
 
@@ -137,7 +137,7 @@ START_TEST(test_pingqueue_push_limit) {
 
     ping_task_t *pop_task = NULL;
     ck_assert_int_eq(EXIT_SUCCESS, popPingTask(queue, &pop_task));
-    _destroyPingTask(pop_task);
+    destroyPingTask(pop_task);
 
     destroyPingQueue(queue);
 }
