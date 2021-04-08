@@ -6,7 +6,6 @@
 #define SIPLINE_SIPLIB_H
 
 #include <pcap/pcap.h>
-#include <osip2/osip.h>
 #include "stdint.h"
 
 #define FLUSH_OUTPUT {fflush(stdout); fflush(stderr);} while(0);
@@ -81,7 +80,7 @@ int startPcapCaptureLoop(pcap_t *handle, ping_queue_t *queue);
  * Register osip state machine with all callbacks
  * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
-int registerOsip(osip_t **osip);
+int initializeOsipParser();
 
 
 #endif //SIPLINE_SIPLIB_H

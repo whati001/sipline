@@ -6,7 +6,6 @@
 #define SIPLINE_SIPLINE_H
 
 #include <pcap/pcap.h>
-#include <osip2/osip.h>
 #include <pthread.h>
 
 #include "ping/pingservice.h"
@@ -15,7 +14,6 @@
 typedef struct {
     char *nic_name;
     pcap_t *pcap_handle;
-    osip_t *osip_parser;
     ping_service_t *ping_service;
 } sipline_t;
 

@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <osip2/osip.h>
 #include <sipline.h>
+#include <osipparser2/osip_parser.h>
 
 #include "siplib.h"
 #include "sipnet.h"
@@ -103,6 +103,7 @@ void pcapSipPackageHandler(
         const struct pcap_pkthdr *header,
         const u_char *packet
 ) {
+    (void) header;
     ping_queue_t *queue = (ping_queue_t *) args;
     const struct sipline_udp_header *udp_header = getUdpHeader(packet);
     if (NULL == udp_header) {
@@ -257,11 +258,11 @@ int startPcapCaptureLoop(pcap_t *handle, ping_queue_t *queue) {
     return 0 == ret_loop ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-int registerOsip(osip_t **osip) {
+int initializeOsipParser() {
     fprintf(stdout, "Start to register osip state machine started\n");
-    int ret_osip = osip_init(osip);
+    int ret_osip = parser_init();
     if (0 != ret_osip) {
-        fprintf(stdout, "Failed to register osip state machine\n");
+        fprintf(stdout, "Failed to register osip parser\n");
         return EXIT_FAILURE;
     }
 

@@ -14,7 +14,7 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
     sipline->nic_name = interface;
     fprintf(stdout, "Start initializing new sipline instance for nic: %s\n", sipline->nic_name);
 
-    ret_code = registerOsip(&sipline->osip_parser);
+    ret_code = initializeOsipParser();
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to register osip watch properly");
         free(sipline);
@@ -22,11 +22,10 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
         return ret_code;
     }
 
-//    ret_code = setupFilePcapParsing(&sipline->pcap_handle, "/home/akarner/Downloads/phoneCapture/goForIt.pcapng");
-    ret_code = setupLivePcapParsing(&sipline->pcap_handle, sipline->nic_name);
+    ret_code = setupFilePcapParsing(&sipline->pcap_handle, "/home/akarner/Downloads/phoneCapture/goForIt.pcapng");
+//    ret_code = setupLivePcapParsing(&sipline->pcap_handle, sipline->nic_name);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to setup pcap for interface: %s\n", interface);
-        osip_release(sipline->osip_parser);
         free(sipline);
         sipline = NULL;
         return ret_code;
@@ -35,7 +34,6 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
     ret_code = initPingService(&sipline->ping_service);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to setup ping service\n");
-        osip_release(sipline->osip_parser);
         pcap_close(sipline->pcap_handle);
         free(sipline);
         sipline = NULL;
@@ -72,7 +70,6 @@ void destroySipline(sipline_t *sipline) {
     if (NULL != sipline->pcap_handle) {
         pcap_close(sipline->pcap_handle);
     }
-    osip_release(sipline->osip_parser);
 
     pthread_cancel(sipline->ping_service->worker_thread);
     pthread_join(sipline->ping_service->worker_thread, NULL);
