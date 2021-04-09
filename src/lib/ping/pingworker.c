@@ -49,6 +49,7 @@ int initPingService(ping_service_t **ping_service) {
         return EXIT_FAILURE;
     }
 
+    prepared_service->thread_started = 0;
     *ping_service = prepared_service;
     return EXIT_SUCCESS;
 }
@@ -59,6 +60,16 @@ int startPingService(ping_service_t *ping_service) {
         free(ping_service);
         return EXIT_FAILURE;
     }
+    ping_service->thread_started = 1;
 
     return EXIT_SUCCESS;
+}
+
+void destroyPingService(ping_service_t *service) {
+    if (1 == service->thread_started) {
+        pthread_cancel(service->worker_thread);
+        pthread_join(service->worker_thread, NULL);
+    }
+    destroyPingQueue(service->ping_queue);
+    free(service);
 }

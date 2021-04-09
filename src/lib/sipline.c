@@ -71,10 +71,6 @@ void destroySipline(sipline_t *sipline) {
         pcap_close(sipline->pcap_handle);
     }
 
-    pthread_cancel(sipline->ping_service->worker_thread);
-    pthread_join(sipline->ping_service->worker_thread, NULL);
-
-    destroyPingQueue(sipline->ping_service->ping_queue);
-    free(sipline->ping_service);
+    destroyPingService(sipline->ping_service);
     free(sipline);
 }

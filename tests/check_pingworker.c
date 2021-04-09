@@ -4,13 +4,15 @@
 
 #include "check.h"
 #include <stdlib.h>
+#include <sipline.h>
 
-START_TEST(test_queue_basic) {
-    ck_assert_int_eq(1, 1);
-}
+START_TEST(test_init_worker) {
+    ck_assert_int_eq(EXIT_FAILURE, initPingService(NULL));
 
-START_TEST(test_queue_init) {
-    ck_assert_int_eq(1, 1);
+    ping_service_t *service = NULL;
+    ck_assert_int_eq(EXIT_SUCCESS, initPingService(&service));
+
+    destroyPingService(service);
 }
 
 END_TEST
@@ -19,11 +21,10 @@ Suite *queue_suite() {
     Suite *s;
     TCase *tc_core;
 
-    s = suite_create("Queue");
-    tc_core = tcase_create("Core");
+    s = suite_create("PingWorker");
+    tc_core = tcase_create("PingWorkerBasic");
 
-    tcase_add_test(tc_core, test_queue_basic);
-    tcase_add_test(tc_core, test_queue_init);
+    tcase_add_test(tc_core, test_init_worker);
     suite_add_tcase(s, tc_core);
 
     return s;
