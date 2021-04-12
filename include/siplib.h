@@ -14,8 +14,6 @@
 
 // maximal interface length
 #define MAX_INTERFACE_LEN 100
-// BPF filter expression for SIP messages -> port may vary
-#define BPF_SIP_FILTER "(port 6050) and (udp)"
 
 // define some stuff to clean up code
 #define SIP_INVITE_CODE 0
@@ -26,6 +24,8 @@ typedef struct {
     char *from;
     char *to;
 } sipline_call_info;
+
+char *stringifyCallInfo(sipline_call_info *call_info);
 
 sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length);
 

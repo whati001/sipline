@@ -11,6 +11,16 @@
 #include "ping/pingservice.h"
 #include "siplib.h"
 
+// BPF filter expression for SIP messages -> port may vary
+#define BPF_SIP_FILTER "(port 6050) and (udp)"
+
+// Backend Server connection info
+// please use IP address, we have not implemented host name resolution yet
+#define PING_HOST "127.0.0.1"
+#define PING_PORT 2711
+#define PING_QUERY "bing/bell"
+
+
 typedef struct {
     char *nic_name;
     pcap_t *pcap_handle;

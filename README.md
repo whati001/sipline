@@ -1,18 +1,11 @@
 # Sipline
 
-Simple plain C SIP package sniffer designed to run on routers. The main aim of this project is to compile and run this
-simple application on linux routers with ssh/telnet access.
+Simple SIP package sniffer writtin in plain C. The aim of this application is to watch incomming traffic on the nic and send out a ping message to your target host if an [SIP](https://en.wikipedia.org/wiki/Session_Initiation_Protocol) `INVITE` occur.
 
-The code is not really very modular designed yet, but this is right now just a POC version. We sniff
-via [libpcap](https://www.tcpdump.org/) the [UDP](https://en.wikipedia.org/wiki/User_Datagram_Protocol) traffic and
-filter just for `INVITE`, `CANCEL` and `TAKEOFF` answers (not yet implemented). So we know precisely when the phone is
-ringing. For filtering the [SIP](https://en.wikipedia.org/wiki/Session_Initiation_Protocol)
-traffic, [libosip2](https://www.gnu.org/software/osip/) is used.
+Because the `INVITE` signals an incommming call, the remote server listening for the ping request can react on this event, for example playing a tone. This would allow us to build a external bell for your [VoIP](https://en.wikipedia.org/wiki/Voice_over_IP) telefon.
 
-We send this information to an HTTP/S API endpoint via [libcurl](https://curl.se/libcurl/).
-
-Maybe you have already observed what the script is used for -> to build a external bell
-for [VoIP](https://en.wikipedia.org/wiki/Voice_over_IP) phones.
+The project is memory optimized and should run on any linux based router with at least 8MB main memory.
+For capturing, [libpcap](https://www.tcpdump.org/) is utilized and for the parsing [libosip2](https://www.gnu.org/software/osip/). Because [libcurl](https://curl.se/libcurl/) is quite heavy, we have implemented your own ping service via [pthread](https://man7.org/linux/man-pages/man7/pthreads.7.html) and [tcp](https://en.wikipedia.org/wiki/Transmission_Control_Protocol) sockets.
 
 # Preperation
 
@@ -21,7 +14,6 @@ You will need following packages on your system:
 * [cmake](https://cmake.org/)
 * [libpcap](https://www.tcpdump.org/)
 * [libosip2](https://www.gnu.org/software/osip/)
-* [libcurl](https://curl.se/libcurl/)
 
 If you are on a x86 host, you should be able to install everything except libosip2 via your favourite package manager.
 You can also try to install the libs by installing curl and tcpdump. For debian distros, please install the `-dev`
@@ -33,7 +25,6 @@ Simplier is to get [entware](https://github.com/Entware/Entware) up and running 
 ```bash
 > opkg upgrade
 > opkg install cmake
-> opkg install libcurl
 > opkg install libpcap
 # > opkg install libosip2
 ```
@@ -60,10 +51,6 @@ here:
 
 ```bash
 # header files
-> root@DD-WRT:/# ls opt/include/curl/
-curl.h           easy.h           multi.h          stdcheaders.h    typecheck-gcc.h
-curlver.h        mprintf.h        options.h        system.h         urlapi.h
-
 > root@DD-WRT:/# ls opt/includepcap/
 bluetooth.h       compiler-tests.h  ipnet.h           pcap-inttypes.h   socket.h
 bpf.h             dlt.h             namedb.h          pcap.h            usb.h
@@ -77,11 +64,8 @@ headers         osip_const.h    osip_list.h     osip_message.h  osip_port.h     
 osip_body.h     osip_headers.h  osip_md5.h      osip_parser.h   osip_uri.h
 
 # libraries
-> root@DD-WRT:/opt/include# ls /opt/lib/ | grep 'curl\|pcap\|sip'
+> root@DD-WRT:/opt/include# ls /opt/lib/ | grep 'pcap\|sip'
 ...
-libcurl.so
-libcurl.so.4
-libcurl.so.4.6.0
 libosip2.a
 libosip2.la
 libosip2.so
@@ -104,11 +88,13 @@ Currently all the configuration is done via the header file `./include/sipline.h
 
 ```c
 // BPF filter expression for SIP messages -> port may vary
-#define
-BPF_SIP_FILTER "(port 6050) and (udp)"
-// define API endpoint to send SIP signals to
-#define
-TARGET_URL "http://<host>:2711/ringBell"
+#define BPF_SIP_FILTER "(port 6050) and (udp)"
+
+// Backend Server connection info
+// please use IP address, we have not implemented host name resolution yet
+#define PING_HOST "127.0.0.1"
+#define PING_PORT 2711
+#define PING_QUERY "bing/bell"
 ```
 
 Please just check if the PORT is correct for your SIP provider. Seems like 6050 is more exotic, but works for me. Also

@@ -11,6 +11,14 @@
 #include "siplib.h"
 #include "sipnet.h"
 
+char *stringifyCallInfo(sipline_call_info *call_info) {
+    size_t needed = snprintf(NULL, 0, "{\"type\":%d,\"from\":%s,\"to\":%s}", call_info->type,
+                             call_info->from, call_info->to);
+    char *buffer = (char *) calloc(sizeof(char), needed + 1);
+    sprintf(buffer, "{\"type\":%d,\"from\":%s,\"to\":%s}", call_info->type, call_info->from, call_info->to);
+    return buffer;
+}
+
 sipline_call_info *parseSipMessage(u_char *payload, uint32_t payload_length) {
     osip_message_t *sip = NULL;
     sipline_call_info *call_info = NULL;
@@ -121,11 +129,11 @@ void pcapSipPackageHandler(
     ping_task_t *task = (ping_task_t *) malloc(sizeof(ping_task_t));
     *task = (ping_task_t) {
             HTTP,
-            strdup("localhost"),
-            2711,
+            strdup(PING_HOST),
+            PING_PORT,
             POST,
-            strdup("ringBell"),
-            strdup("someBody"),
+            strdup(PING_QUERY),
+            stringifyCallInfo(call_info),
             NULL
     };
     fprintf(stdout, "Created new task, push to ping queue\n");
