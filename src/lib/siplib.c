@@ -113,6 +113,7 @@ void pcapSipPackageHandler(
         const u_char *packet
 ) {
     (void) header;
+    (void) args;
     const struct sipline_udp_header *udp_header = getUdpHeader(packet);
     if (NULL == udp_header) {
         fprintf(stdout, "Not UDP header found in received package, skip it\n");
@@ -126,25 +127,6 @@ void pcapSipPackageHandler(
         return;
     }
 
-#ifndef USE_CURL
-    ping_queue_t *queue = (ping_queue_t *) args;
-    ping_task_t *task = (ping_task_t *) malloc(sizeof(ping_task_t));
-    *task = (ping_task_t) {
-            HTTP,
-            strdup(PING_HOST),
-            PING_PORT,
-            POST,
-            strdup(PING_QUERY),
-            stringifyCallInfo(call_info),
-            NULL
-    };
-    fprintf(stdout, "Created new task, push to ping queue\n");
-
-
-    if (EXIT_FAILURE == pushPingTask(queue, task)) {
-        fprintf(stdout, "Failed to push  new signal task to queue, let's hope next one works\n");
-    }
-#else
     CURL *curl;
     CURLcode res;
 
@@ -172,7 +154,6 @@ void pcapSipPackageHandler(
         free(post_body);
     }
     curl_global_cleanup();
-#endif
 }
 
 
