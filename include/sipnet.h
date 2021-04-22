@@ -5,6 +5,8 @@
 #ifndef SIPLINE_SIPNET_H
 #define SIPLINE_SIPNET_H
 
+#include <netinet/in.h>
+
 /**
  * Ethernet header information
  */
