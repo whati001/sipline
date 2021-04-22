@@ -72,9 +72,10 @@ int setupFilePcapParsing(pcap_t **parent_handler, const char *filename);
 /**
  * Start PCAP SIP listener and sniff until we kill the program
  * @param handle to start listen on
+ * @param params passed to handler function
  * @return on Success return EXIT_SUCCESS, on Failure EXIT_FAILURE
  */
-int startPcapCaptureLoop(pcap_t *handle, ping_queue_t *queue);
+int startPcapCaptureLoop(pcap_t *handle, u_char *params);
 
 /**
  * Register osip state machine with all callbacks

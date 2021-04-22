@@ -31,6 +31,7 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
         return ret_code;
     }
 
+#ifndef USE_CURL
     ret_code = initPingService(&sipline->ping_service);
     if (EXIT_FAILURE == ret_code) {
         fprintf(stderr, "Failed to setup ping service\n");
@@ -39,6 +40,7 @@ int initializeSipline(sipline_t **parent_sipline, char *interface) {
         sipline = NULL;
         return ret_code;
     }
+#endif
 
     *parent_sipline = sipline;
     fprintf(stdout, "Successfully initialized sipline instance for nic: %s\n", (*parent_sipline)->nic_name);
@@ -52,13 +54,15 @@ int startSipline(sipline_t *sipline) {
     }
     fprintf(stdout, "Start analysing SIP traffic on interface: %s\n", sipline->nic_name);
 
+#ifndef USE_CURL
     if (EXIT_FAILURE == startPingService(sipline->ping_service)) {
         fprintf(stderr, "Failed to start ping service, shutdown sipline graceful\n");
         return EXIT_FAILURE;
     }
-
     return startPcapCaptureLoop(sipline->pcap_handle, sipline->ping_service->ping_queue);
+#endif
 
+    return startPcapCaptureLoop(sipline->pcap_handle, NULL);
 }
 
 void destroySipline(sipline_t *sipline) {
@@ -70,7 +74,8 @@ void destroySipline(sipline_t *sipline) {
     if (NULL != sipline->pcap_handle) {
         pcap_close(sipline->pcap_handle);
     }
-
+#ifndef USE_CURL
     destroyPingService(sipline->ping_service);
+#endif
     free(sipline);
 }

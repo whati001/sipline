@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <curl/curl.h>
 #include <sipline.h>
 #include <osipparser2/osip_parser.h>
 
@@ -112,7 +113,6 @@ void pcapSipPackageHandler(
         const u_char *packet
 ) {
     (void) header;
-    ping_queue_t *queue = (ping_queue_t *) args;
     const struct sipline_udp_header *udp_header = getUdpHeader(packet);
     if (NULL == udp_header) {
         fprintf(stdout, "Not UDP header found in received package, skip it\n");
@@ -126,6 +126,8 @@ void pcapSipPackageHandler(
         return;
     }
 
+#ifndef USE_CURL
+    ping_queue_t *queue = (ping_queue_t *) args;
     ping_task_t *task = (ping_task_t *) malloc(sizeof(ping_task_t));
     *task = (ping_task_t) {
             HTTP,
@@ -142,10 +144,35 @@ void pcapSipPackageHandler(
     if (EXIT_FAILURE == pushPingTask(queue, task)) {
         fprintf(stdout, "Failed to push  new signal task to queue, let's hope next one works\n");
     }
+#else
+    CURL *curl;
+    CURLcode res;
 
-    free(call_info->from);
-    free(call_info->to);
-    free(call_info);
+    curl = curl_easy_init();
+    if (curl) {
+        char *post_body = stringifyCallInfo(call_info);
+        free(call_info->from);
+        free(call_info->to);
+        free(call_info);
+
+        struct curl_slist *chunk = NULL;
+        chunk = curl_slist_append(chunk, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
+        curl_easy_setopt(curl, CURLOPT_URL, TARGET_URL);
+        curl_easy_setopt(curl, CURLOPT_POST, 1);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_body);
+
+        res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            fprintf(stderr, "curl_easy_perform() failed: %s\n",
+                    curl_easy_strerror(res));
+        }
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(chunk);
+        free(post_body);
+    }
+    curl_global_cleanup();
+#endif
 }
 
 
@@ -255,13 +282,13 @@ int setupFilePcapParsing(pcap_t **parent_handler, const char *filename) {
     return EXIT_SUCCESS;
 }
 
-int startPcapCaptureLoop(pcap_t *handle, ping_queue_t *queue) {
+int startPcapCaptureLoop(pcap_t *handle, u_char *params) {
     if (NULL == handle) {
         fprintf(stderr, "Please provide a proper pcap handle to start SIP listening");
         return EXIT_FAILURE;
     }
 
-    int ret_loop = pcap_loop(handle, 0, pcapSipPackageHandler, (u_char *) queue);
+    int ret_loop = pcap_loop(handle, 0, pcapSipPackageHandler, params);
     fprintf(stdout, "Pcap loop ended with return code: %d\n", ret_loop);
     return 0 == ret_loop ? EXIT_SUCCESS : EXIT_FAILURE;
 }
